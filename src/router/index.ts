@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/Login.vue'
-import { visibleMenuRouteTemplates } from '../views/security/manuSettings/menuRoutes'
+import {
+  menuRouteTemplates,
+  type MenuRouteItem
+} from '../views/security/manuSettings/menuRoutes'
 
 const componentMap: Record<string, any> = {
   Home: () => import('../views/Home.vue'),
@@ -19,16 +22,51 @@ const componentMap: Record<string, any> = {
   PsbwView: () => import('../views/ps/psbw/PsbwView.vue'),
   PshrView: () => import('../views/ps/pshr/PshrView.vue'),
   PssmView: () => import('../views/ps/pssm/PssmView.vue'),
-  MenuSettings: () => import('../views/security/manuSettings/MenuSettings.vue')
+  MenuSettings: () => import('../views/security/manuSettings/MenuSettings.vue'),
+  UserManage: () => import('../views/security/userManage/UserManage.vue'),
+  RowDragFlatTest: () => import('../views/test/table/rowDragFlatTest/RowDragFlatTest.vue'),
+  RowDragTreeTest: () => import('../views/test/table/rowDragTreeTest/RowDragTreeTest.vue'),
+  TestPageSample: () => import('../views/test/page/sample/TestPageSample.vue')
 }
 
-const dynamicRoutes = visibleMenuRouteTemplates
+const collectEnabledMenuRoutes = (
+  items: MenuRouteItem[],
+  parentEnabled = true
+): MenuRouteItem[] => {
+  return items.reduce<MenuRouteItem[]>((acc, item) => {
+    const currentEnabled = parentEnabled && item.enabled
+    if (!currentEnabled) {
+      return acc
+    }
+
+    acc.push(item)
+
+    if (item.children?.length) {
+      acc.push(...collectEnabledMenuRoutes(item.children, currentEnabled))
+    }
+
+    return acc
+  }, [])
+}
+
+const dynamicRouteItems = collectEnabledMenuRoutes(menuRouteTemplates)
+const dynamicRoutes = dynamicRouteItems
+  .filter((item, index, arr) => arr.findIndex((route) => route.path === item.path) === index)
   .filter((item) => componentMap[item.component])
   .map((item) => ({
     path: item.path,
     name: item.name,
     component: componentMap[item.component]
   }))
+
+// 添加额外的路由别名以支持用户设置的路径
+const aliasRoutes = [
+  {
+    path: '/security/userManage',
+    name: 'UserManageAlias',
+    component: componentMap.UserManage
+  }
+]
 
 const routes = [
   {
@@ -45,7 +83,8 @@ const routes = [
     name: 'Home',
     component: componentMap.Home
   },
-  ...dynamicRoutes
+  ...dynamicRoutes,
+  ...aliasRoutes
 ]
 
 const router = createRouter({

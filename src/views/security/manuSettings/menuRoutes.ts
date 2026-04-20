@@ -1,3 +1,5 @@
+import { get } from '../../../common/request'
+
 export interface MenuRouteItem {
   path: string
   name: string
@@ -11,217 +13,9 @@ export interface MenuRouteItem {
 }
 
 const STORAGE_KEY = 'menuRouteTemplates'
+const MENU_ROUTE_TEMPLATE_URL = import.meta.env.API_MENU_ROUTE_TEMPLATE_URL || '/menu/query'
 
-export const defaultMenuRouteTemplates: MenuRouteItem[] = [
-  {
-    label: '物料管理',
-    path: '/mm',
-    name: 'MM',
-    component: 'Home',
-    enabled: true,
-    description: '物料管理目录',
-    category: '物料管理',
-    order: 1,
-    children: [
-      {
-        label: '物料公共',
-        path: '/mm/mm00',
-        name: 'MM00',
-        component: 'Mm00View',
-        enabled: true,
-        description: '物料公共页面',
-        category: '物料管理',
-        order: 1
-      },
-      {
-        label: '轨梁物料管理',
-        path: '/mm/mmbs',
-        name: 'MMBS',
-        component: 'MmbsView',
-        enabled: true,
-        description: '轨梁物料管理页面',
-        category: '物料管理',
-        order: 2
-      },
-      {
-        label: '棒线物料管理',
-        path: '/mm/mmbw',
-        name: 'MMBW',
-        component: 'MmbwView',
-        enabled: true,
-        description: '棒线物料管理页面',
-        category: '物料管理',
-        order: 3
-      },
-      {
-        label: '中宽带物料管理',
-        path: '/mm/mmhr',
-        name: 'MMHR',
-        component: 'MmhrView',
-        enabled: true,
-        description: '中宽带物料管理页面',
-        category: '物料管理',
-        order: 4
-      },
-      {
-        label: '炼钢物料管理',
-        path: '/mm/mmsm',
-        name: 'MMSM',
-        component: 'MmsmView',
-        enabled: true,
-        description: '炼钢物料管理页面',
-        category: '物料管理',
-        order: 5
-      }
-    ]
-  },
-  {
-    label: '合同管理',
-    path: '/om',
-    name: 'OM',
-    component: 'Home',
-    enabled: true,
-    description: '合同管理目录',
-    category: '合同管理',
-    order: 2,
-    children: [
-      {
-        label: '转用充当',
-        path: '/om/pmoa',
-        name: 'PMOA',
-        component: 'PmoaView',
-        enabled: true,
-        description: '转用充当页面',
-        category: '合同管理',
-        order: 1
-      },
-      {
-        label: '合同跟踪',
-        path: '/om/pmof',
-        name: 'PMOF',
-        component: 'PmofView',
-        enabled: true,
-        description: '合同跟踪页面',
-        category: '合同管理',
-        order: 2
-      },
-      {
-        label: '合同归并',
-        path: '/om/pmog',
-        name: 'PMOG',
-        component: 'PmogView',
-        enabled: true,
-        description: '合同归并页面',
-        category: '合同管理',
-        order: 3
-      },
-      {
-        label: '合同准发',
-        path: '/om/pmol',
-        name: 'PMOL',
-        component: 'PmolView',
-        enabled: true,
-        description: '合同准发页面',
-        category: '合同管理',
-        order: 4
-      },
-      {
-        label: '材料申请',
-        path: '/om/pmom',
-        name: 'PMOM',
-        component: 'PmomView',
-        enabled: true,
-        description: '材料申请页面',
-        category: '合同管理',
-        order: 5
-      },
-      {
-        label: '合同计划',
-        path: '/om/pmop',
-        name: 'PMOP',
-        component: 'PmopView',
-        enabled: true,
-        description: '合同计划页面',
-        category: '合同管理',
-        order: 6
-      }
-    ]
-  },
-  {
-    label: '计划管理',
-    path: '/ps',
-    name: 'PS',
-    component: 'Home',
-    enabled: true,
-    description: '计划管理目录',
-    category: '计划管理',
-    order: 3,
-    children: [
-      {
-        label: '轨梁计划',
-        path: '/ps/pabs',
-        name: 'PABS',
-        component: 'PabsView',
-        enabled: true,
-        description: '轨梁计划页面',
-        category: '计划管理',
-        order: 1
-      },
-      {
-        label: '棒线计划',
-        path: '/ps/psbw',
-        name: 'PSBW',
-        component: 'PsbwView',
-        enabled: true,
-        description: '棒线计划页面',
-        category: '计划管理',
-        order: 2
-      },
-      {
-        label: '中宽带计划',
-        path: '/ps/pshr',
-        name: 'PSHR',
-        component: 'PshrView',
-        enabled: true,
-        description: '中宽带计划页面',
-        category: '计划管理',
-        order: 3
-      },
-      {
-        label: '炼钢计划',
-        path: '/ps/pssm',
-        name: 'PSSM',
-        component: 'PssmView',
-        enabled: true,
-        description: '炼钢计划页面',
-        category: '计划管理',
-        order: 4
-      }
-    ]
-  },
-  {
-    label: '安全配置',
-    path: '/security',
-    name: 'Security',
-    component: 'Home',
-    enabled: true,
-    description: '安全配置目录',
-    category: '安全配置',
-    order: 4,
-    children: [
-      {
-        label: '菜单管理',
-        path: '/security/menuSettings',
-        name: 'MenuSettings',
-        component: 'MenuSettings',
-        enabled: true,
-        description: '菜单管理页面',
-        category: '安全配置',
-        order: 1
-      }
-    ]
-  }
-]
+export let defaultMenuRouteTemplates: MenuRouteItem[] = []
 
 const sortMenuRouteTemplates = (items: MenuRouteItem[]): MenuRouteItem[] => {
   return items
@@ -283,7 +77,100 @@ const loadStoredMenuRouteTemplates = (): MenuRouteItem[] => {
   return sortMenuRouteTemplates(defaultMenuRouteTemplates)
 }
 
-export const menuRouteTemplates: MenuRouteItem[] = loadStoredMenuRouteTemplates()
+const isObject = (value: unknown): value is Record<string, unknown> => {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+const normalizeMenuRouteItems = (
+  payload: unknown,
+  inheritedCategory?: string
+): MenuRouteItem[] => {
+  if (Array.isArray(payload)) {
+    return payload
+      .map((item) => normalizeMenuRouteItem(item, inheritedCategory))
+      .filter((item): item is MenuRouteItem => !!item)
+  }
+
+  if (!isObject(payload)) {
+    return []
+  }
+
+  const candidateKeys = ['data', 'list', 'records', 'rows', 'items', 'result']
+  for (const key of candidateKeys) {
+    if (key in payload) {
+      const normalized = normalizeMenuRouteItems(payload[key], inheritedCategory)
+      if (normalized.length) {
+        return normalized
+      }
+    }
+  }
+
+  const single = normalizeMenuRouteItem(payload, inheritedCategory)
+  return single ? [single] : []
+}
+
+const normalizeMenuRouteItem = (
+  payload: unknown,
+  inheritedCategory?: string
+): MenuRouteItem | null => {
+  if (!isObject(payload)) {
+    return null
+  }
+
+  const path = typeof payload.path === 'string' ? payload.path.trim() : ''
+  const label = typeof payload.label === 'string' ? payload.label.trim() : ''
+  const name = typeof payload.name === 'string' ? payload.name.trim() : ''
+  const component = typeof payload.component === 'string' ? payload.component.trim() : ''
+
+  if (!path || !label || !name || !component) {
+    return null
+  }
+
+  const currentCategory =
+    typeof payload.category === 'string' && payload.category.trim()
+      ? payload.category.trim()
+      : inheritedCategory
+
+  const order = typeof payload.order === 'number' ? payload.order : undefined
+  const enabled = typeof payload.enabled === 'boolean' ? payload.enabled : true
+  const description =
+    typeof payload.description === 'string' && payload.description.trim()
+      ? payload.description.trim()
+      : label
+
+  const children = normalizeMenuRouteItems(payload.children, currentCategory)
+
+  return {
+    path,
+    label,
+    name,
+    component,
+    enabled,
+    description,
+    category: currentCategory,
+    order,
+    children: children.length ? children : undefined
+  }
+}
+
+const fetchDefaultMenuRouteTemplates = async (): Promise<MenuRouteItem[] | null> => {
+  try {
+    const result = await get<unknown>(MENU_ROUTE_TEMPLATE_URL)
+    const normalized = normalizeMenuRouteItems(result)
+
+    if (!normalized.length) {
+      console.warn('后台菜单模板为空，使用本地默认模板')
+      return null
+    }
+
+    return normalized
+  } catch (error) {
+    console.warn('加载后台菜单模板失败，使用本地默认模板', error)
+    return null
+  }
+}
+
+export let menuRouteTemplates: MenuRouteItem[] = loadStoredMenuRouteTemplates()
 
 const flatten = (
   items: MenuRouteItem[],
@@ -306,6 +193,36 @@ const flatten = (
   }, [])
 }
 
-const flatMenuRouteTemplates: MenuRouteItem[] = flatten(menuRouteTemplates)
-export const visibleMenuRouteTemplates: MenuRouteItem[] = flatMenuRouteTemplates
+export let visibleMenuRouteTemplates: MenuRouteItem[] = flatten(menuRouteTemplates)
+
+const refreshMenuRouteTemplates = () => {
+  menuRouteTemplates = loadStoredMenuRouteTemplates()
+  visibleMenuRouteTemplates = flatten(menuRouteTemplates)
+}
+
+let initialized = false
+let initializingPromise: Promise<void> | null = null
+
+export const initializeMenuRouteTemplates = async (): Promise<void> => {
+  if (initialized) {
+    return
+  }
+
+  if (initializingPromise) {
+    return initializingPromise
+  }
+
+  initializingPromise = (async () => {
+    const remoteTemplates = await fetchDefaultMenuRouteTemplates()
+    if (remoteTemplates?.length) {
+      defaultMenuRouteTemplates = remoteTemplates
+    }
+    refreshMenuRouteTemplates()
+    initialized = true
+  })().finally(() => {
+    initializingPromise = null
+  })
+
+  return initializingPromise
+}
 

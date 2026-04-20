@@ -8,60 +8,46 @@
     router
     collapse-transition
   >
-    <template v-for="group in groupedRoutes" :key="group.category">
-      <el-sub-menu v-if="group.category !== '默认'" :index="group.category">
-        <template #title>
-          <span>{{ group.category }}</span>
-        </template>
-        <el-menu-item
-          v-for="item in group.routes"
-          :key="item.path"
-          :index="item.path"
-        >
-          {{ item.label }}
-        </el-menu-item>
-      </el-sub-menu>
-      <template v-else>
-        <el-menu-item
-          v-for="item in group.routes"
-          :key="item.path"
-          :index="item.path"
-        >
-          {{ item.label }}
-        </el-menu-item>
-      </template>
-    </template>
+    <SideMenuNode :nodes="menuTree" />
   </el-menu>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import SideMenuNode from './SideMenuNode.vue'
 import {
-  visibleMenuRouteTemplates,
+  menuRouteTemplates,
   MenuRouteItem
 } from '../views/security/manuSettings/menuRoutes'
 
 const currentRoute = useRoute()
 
-const groupedRoutes = computed(() => {
-  const enabledRoutes = visibleMenuRouteTemplates
-  const groups: Record<string, MenuRouteItem[]> = {}
-  const categoryOrder: string[] = []
-
-  enabledRoutes.forEach((item) => {
-    const category = item.category || '默认'
-    if (!groups[category]) {
-      groups[category] = []
-      categoryOrder.push(category)
+const buildEnabledMenuTree = (
+  items: MenuRouteItem[],
+  parentEnabled = true
+): MenuRouteItem[] => {
+  return items.reduce<MenuRouteItem[]>((acc, item) => {
+    const currentEnabled = parentEnabled && item.enabled
+    if (!currentEnabled) {
+      return acc
     }
-    groups[category].push(item)
-  })
 
-  return categoryOrder.map((category) => ({
-    category,
-    routes: groups[category]
-  }))
+    const nextChildren = item.children
+      ? buildEnabledMenuTree(item.children, currentEnabled)
+      : undefined
+
+    acc.push({
+      ...item,
+      children: nextChildren && nextChildren.length ? nextChildren : undefined
+    })
+
+    return acc
+  }, [])
+}
+
+const menuTree = computed(() => {
+  return buildEnabledMenuTree(menuRouteTemplates)
 })
 </script>
 
@@ -71,5 +57,26 @@ const groupedRoutes = computed(() => {
   height: 100%;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.45) transparent;
+}
+
+.side-menu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.side-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.side-menu::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.side-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.65);
 }
 </style>
