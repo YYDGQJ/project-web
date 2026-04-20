@@ -26,17 +26,20 @@
 
     <div v-if="visible">
       <el-alert title="这是显示内容" type="success" show-icon />
-      <el-table :data="tableData" style="width: 100%; margin-top: 20px;">
-        <el-table-column prop="date" label="日期" width="150" />
-        <el-table-column prop="name" label="姓名" width="180" />
-        <el-table-column prop="address" label="地址" />
-      </el-table>
+      <CommonTable
+        :data="tableData"
+        :columns="tableColumns"
+        :row-draggable="true"
+        order-field="order"
+        table-style="width: 100%; margin-top: 20px;"
+      />
     </div>
   </el-card>
 </template>
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import CommonTable, { type CommonTableColumn } from '../components/CommonTable.vue'
 
 const visible = ref(true)
 const form = reactive({
@@ -45,10 +48,17 @@ const form = reactive({
   gender: ''
 })
 
-const tableData = [
-  { date: '2026-04-13', name: '张三', address: '上海市普陀区' },
-  { date: '2026-04-14', name: '李四', address: '北京市朝阳区' },
-  { date: '2026-04-15', name: '王五', address: '广州市天河区' }
+const tableData = ref([
+  { order: 1, date: '2026-04-13', name: '张三', address: '上海市普陀区' },
+  { order: 2, date: '2026-04-14', name: '李四', address: '北京市朝阳区' },
+  { order: 3, date: '2026-04-15', name: '王五', address: '广州市天河区' }
+])
+
+const tableColumns: CommonTableColumn[] = [
+  { prop: 'order', label: '顺序', width: 100 },
+  { prop: 'date', label: '日期', width: 150 },
+  { prop: 'name', label: '姓名', width: 180 },
+  { prop: 'address', label: '地址' }
 ]
 
 const toggleVisible = () => {
