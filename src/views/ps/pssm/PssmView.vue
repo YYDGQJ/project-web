@@ -5,7 +5,9 @@
   </div>
 </template>
 
-<script setup lang="ts"></script>
+<script>
+// 页面说明：PssmView 页面入口组件，当前用于承载对应业务模块。
+</script>
 
 <style scoped>
 .page-view {

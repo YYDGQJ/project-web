@@ -38,8 +38,9 @@
 </template>
 
 <script setup lang="ts">
+// 组件说明：Home 组件，负责当前页面的结构与交互。
 import { reactive, ref } from 'vue'
-import CommonTable, { type CommonTableColumn } from '../components/CommonTable.vue'
+import CommonTable, { type CommonTableColumn } from '../components/table/CommonTable.vue'
 
 const visible = ref(true)
 const form = reactive({

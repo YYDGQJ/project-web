@@ -162,7 +162,7 @@ onUnmounted(() => {
   justify-content: center;
 }
 
-.fullscreen-btn :deep(svg) {
+.fullscreen-btn :v-deep(svg) {
   width: 18px;
   height: 18px;
 }
@@ -176,11 +176,11 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-:deep(.user-info-card .el-card__body) {
+:v-deep(.user-info-card .el-card__body) {
   padding: 0;
 }
 
-:deep(.user-info-popper) {
+:v-deep(.user-info-popper) {
   padding: 0 !important;
 }
 
@@ -206,11 +206,11 @@ onUnmounted(() => {
   background: #f78989;
 }
 
-:deep(.label-col) {
+:v-deep(.label-col) {
   background: #f5f7fa;
 }
 
-:deep(.label-col .cell) {
+:v-deep(.label-col .cell) {
   color: #606266;
   font-weight: 500;
 }

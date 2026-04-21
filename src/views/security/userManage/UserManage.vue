@@ -70,8 +70,8 @@
 <script setup lang="ts">
 import { reactive, ref, computed, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { post } from '../../../common/request'
-import CommonTable, { type CommonTableColumn } from '../../../components/CommonTable.vue'
+import { getErrorMessage, post } from '../../../common/request'
+import CommonTable, { type CommonTableColumn } from '../../../components/table/CommonTable.vue'
 import CommonQueryCard from '../../../components/CommonQueryCard.vue'
 import type { CommonCardFieldConfig } from '../../../components/common-card.types'
 
@@ -208,10 +208,10 @@ const handleQuery = async (options?: { currentPage?: number; pageSize?: number }
     }
     tableData.value = normalizeUserList(result)
     serverTotal.value = tableData.value.length
-  } catch {
+  } catch (error) {
     tableData.value = []
     serverTotal.value = 0
-    ElMessage.error('用户查询失败，请检查接口或参数')
+    ElMessage.error(getErrorMessage(error, '用户查询失败，请检查接口或参数'))
   } finally {
     loading.querying = false
   }
@@ -286,8 +286,8 @@ const submitUser = async () => {
     } else {
       ElMessage.error(result.msg || '新增用户失败')
     }
-  } catch {
-    ElMessage.error('无法连接后台服务，请检查接口地址')
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '新增用户失败，请稍后重试'))
   } finally {
     loading.submitting = false
   }
@@ -323,24 +323,24 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-:deep(.query-form.el-form--inline .el-form-item) {
+:v-deep(.query-form.el-form--inline .el-form-item) {
   margin-right: 18px;
   margin-bottom: 0;
   flex: 0 0 auto;
 }
 
-:deep(.query-form .el-input),
-:deep(.query-form .el-select),
-:deep(.query-form .el-date-editor) {
+:v-deep(.query-form .el-input),
+:v-deep(.query-form .el-select),
+:v-deep(.query-form .el-date-editor) {
   width: 180px;
 }
 
-:deep(.query-form .el-input__wrapper),
-:deep(.query-form .el-select__wrapper) {
+:v-deep(.query-form .el-input__wrapper),
+:v-deep(.query-form .el-select__wrapper) {
   min-width: 180px;
 }
 
-:deep(.query-form.el-form--inline .el-form-item.resizable-form-item .el-form-item__content) {
+:v-deep(.query-form.el-form--inline .el-form-item.resizable-form-item .el-form-item__content) {
   position: relative;
   width: 220px;
   min-height: 34px;
@@ -359,8 +359,8 @@ onMounted(async () => {
   overflow: auto;
 }
 
-.resizable-input-wrap :deep(.el-textarea),
-.resizable-input-wrap :deep(.el-textarea__inner) {
+.resizable-input-wrap :v-deep(.el-textarea),
+.resizable-input-wrap :v-deep(.el-textarea__inner) {
   width: 100%;
   height: 100%;
   min-height: 100% !important;

@@ -4,6 +4,7 @@
       <template #title>
         <span>{{ item.label }}</span>
       </template>
+
       <SideMenuNode :nodes="item.children" />
     </el-sub-menu>
     <el-menu-item v-else :index="item.path">
@@ -13,6 +14,7 @@
 </template>
 
 <script setup lang="ts">
+// 组件说明：SideMenuNode 组件，负责当前页面的结构与交互。
 import type { MenuRouteItem } from '../views/security/manuSettings/menuRoutes'
 
 defineOptions({

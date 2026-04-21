@@ -26,6 +26,7 @@ const componentMap: Record<string, any> = {
   UserManage: () => import('../views/security/userManage/UserManage.vue'),
   RowDragFlatTest: () => import('../views/test/table/rowDragFlatTest/RowDragFlatTest.vue'),
   RowDragTreeTest: () => import('../views/test/table/rowDragTreeTest/RowDragTreeTest.vue'),
+  CommonTableFeatureDemo: () => import('../views/test/table/commonTableFeatureDemo/CommonTableFeatureDemo.vue'),
   TestPageSample: () => import('../views/test/page/sample/TestPageSample.vue')
 }
 
@@ -65,6 +66,11 @@ const aliasRoutes = [
     path: '/security/userManage',
     name: 'UserManageAlias',
     component: componentMap.UserManage
+  },
+  {
+    path: '/test/table/commonTableFeatureDemo',
+    name: 'CommonTableFeatureDemoAlias',
+    component: componentMap.CommonTableFeatureDemo
   }
 ]
 

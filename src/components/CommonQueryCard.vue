@@ -21,6 +21,7 @@
         </div>
       </div>
     </template>
+
     <el-config-provider :size="'small'">
       <el-form
         v-if="enabledFields.length"
@@ -110,15 +111,22 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 查询卡片容器。
+ * 职责：根据字段配置渲染查询表单，并向外透出 reset / submit / 列数调整事件。
+ * 约束：字段值直接写入外部传入的 model（受控对象），组件本身不维护冗余副本。
+ */
 import { computed } from 'vue'
 import type { CommonCardFieldConfig } from './common-card.types'
 
+// 向父组件发出的交互事件：重置、提交、每行展示列数变化。
 const emit = defineEmits<{
   reset: []
   submit: []
   'update:queryColumns': [value: number]
 }>()
 
+// 公开配置项：控制标题、网格列数、字段集合与表单标签布局。
 const props = withDefaults(
   defineProps<{
     title?: string
@@ -140,17 +148,20 @@ const props = withDefaults(
   }
 )
 
+// 标准化列数，避免非法值导致布局抖动；最终范围固定在 1~12。
 const resolvedQueryColumns = computed(() => {
   const value = Number(props.queryColumns)
   if (!Number.isFinite(value)) return 6
   return Math.min(12, Math.max(1, Math.floor(value)))
 })
 
+// 同步列数设置到父层，保持与输入控件的行为一致（下取整并限幅）。
 const handleQueryColumnsChange = (value: number | undefined) => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return
   emit('update:queryColumns', Math.min(12, Math.max(1, Math.floor(value))))
 }
 
+// 通过 CSS 变量驱动网格列数，减少模板内重复样式拼接。
 const cardStyleVars = computed(() => {
   const columns = resolvedQueryColumns.value
   return {
@@ -158,20 +169,25 @@ const cardStyleVars = computed(() => {
   }
 })
 
+// 仅渲染启用字段，禁用项由配置层过滤而非模板层分支堆叠。
 const enabledFields = computed(() => {
   return (props.fields || []).filter((field) => field.enabled !== false)
 })
 
+// 表单模型透传：保证外部状态是单一数据源。
 const formModel = computed(() => props.model || {})
 
+// 读取字段值时统一走模型访问，便于后续做字段级拦截或转换。
 const getFieldValue = (fieldKey: string) => {
   return formModel.value[fieldKey]
 }
 
+// 更新字段值采用就地写入，确保与外层响应式对象保持引用一致。
 const setFieldValue = (fieldKey: string, value: unknown) => {
   formModel.value[fieldKey] = value
 }
 
+// 标签回退策略：优先显式 label，其次尝试从 placeholder 推导可读名称。
 const resolveFieldLabel = (field: CommonCardFieldConfig) => {
   if (field.label) {
     return field.label
@@ -223,11 +239,11 @@ const resolveFieldLabel = (field: CommonCardFieldConfig) => {
   white-space: nowrap;
 }
 
-:deep(.common-query-card__column-setting .el-input-number) {
+:v-deep(.common-query-card__column-setting .el-input-number) {
   width: 58px;
 }
 
-:deep(.common-query-card__header-wrap .el-button) {
+:v-deep(.common-query-card__header-wrap .el-button) {
   height: 18px;
   min-height: 18px;
   padding: 0 8px !important;
@@ -235,25 +251,25 @@ const resolveFieldLabel = (field: CommonCardFieldConfig) => {
   line-height: 18px;
 }
 
-:deep(.common-query-card.el-card .el-card__header) {
+:v-deep(.common-query-card.el-card .el-card__header) {
   padding: 0 12px !important;
   min-height: 22px;
 }
 
-:deep(.common-query-card .el-card__body) {
+:v-deep(.common-query-card .el-card__body) {
   padding: 8px 12px;
   overflow-x: auto;
 }
 
-:deep(.common-query-card .el-card__body > *) {
+:v-deep(.common-query-card .el-card__body > *) {
   min-width: max-content;
 }
 
-:deep(.common-query-card .el-card__body > .query-form) {
+:v-deep(.common-query-card .el-card__body > .query-form) {
   min-width: 0;
 }
 
-:deep(.common-query-card .query-form-grid) {
+:v-deep(.common-query-card .query-form-grid) {
   display: grid !important;
   grid-template-columns: repeat(var(--query-columns, 6), minmax(0, 1fr)) !important;
   gap: 8px 12px;
@@ -261,13 +277,13 @@ const resolveFieldLabel = (field: CommonCardFieldConfig) => {
   min-width: 0 !important;
 }
 
-:deep(.common-query-card .query-form-grid > *) {
+:v-deep(.common-query-card .query-form-grid > *) {
   width: auto;
   max-width: none;
   min-width: 0;
 }
 
-:deep(.common-query-card .query-form-grid .el-form-item) {
+:v-deep(.common-query-card .query-form-grid .el-form-item) {
   margin-bottom: 0;
   min-width: 0;
   width: 100%;
