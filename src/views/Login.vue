@@ -20,10 +20,11 @@
 </template>
 
 <script setup lang="ts">
+// 组件说明：Login 组件，负责当前页面的结构与交互。
 import { reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { post } from '../common/request'
+import { getErrorMessage, post } from '../common/request'
 
 interface LoginResponse {
   doFlag: number
@@ -158,7 +159,7 @@ const submitLogin = async () => {
     ElMessage.error(result.msg || '登录失败')
   } catch (error) {
     localStorage.removeItem(USER_INFO_KEY)
-    ElMessage.error('无法连接后台服务，请检查接口地址')
+    ElMessage.error(getErrorMessage(error, '登录失败，请稍后重试'))
   } finally {
     loading.submitting = false
   }

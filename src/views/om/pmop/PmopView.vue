@@ -18,27 +18,51 @@
         :columns="tableColumns"
         :loading="loading.querying"
         :total="total"
+        :operation-mode="operationMode"
+        :selection="tableSelection"
+        :editing="tableEditing"
         name="合同信息列表"
+        row-key="orderNo"
         @pagination-change="handlePaginationChange"
+        @selection-change="handleSelectionChange"
+        @edit-cell-change="handleEditCellChange"
+        @edit-submit="handleEditSubmit"
+        @create-submit="handleCreateSubmit"
+        @delete-submit="handleDeleteSubmit"
         border
         stripe
         table-style="width: 100%; height: 100%;"
-      />
+      >
+        <template #toolbar-info>
+          <div class="table-toolbar-summary">
+            已选 {{ selectedRows.length }} 条，合计重量 {{ selectedWeight }}
+          </div>
+        </template>
+      </CommonTable>
     </div>
 
     <div class="query-action-bar">
       <div class="query-action-wrap">
-        <el-button type="primary" :loading="loading.querying" @click="handleSearchSubmit">查询</el-button>
+        <div class="query-action-left">
+          <el-button type="primary" :disabled="actionLocked" @click="handleSearchSubmit">查询</el-button>
+          <el-button :disabled="actionLocked" @click="startEditMode">编辑</el-button>
+          <el-button :disabled="actionLocked" @click="startCreateMode">新增</el-button>
+          <el-button type="danger" :disabled="actionLocked || !selectedRows.length" @click="startDeleteMode">删除</el-button>
+        </div>
+        <div v-if="actionLocked" class="query-action-right">
+          <el-button type="primary" @click="confirmCurrentAction">确认</el-button>
+          <el-button @click="cancelCurrentAction">取消</el-button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, nextTick } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { post } from '../../../common/request'
-import CommonTable, { type CommonTableColumn } from '../../../components/CommonTable.vue'
+import { getErrorMessage, post } from '../../../common/request'
+import CommonTable, { type CommonTableColumn } from '../../../components/table/CommonTable.vue'
 import CommonQueryCard from '../../../components/CommonQueryCard.vue'
 import type { CommonCardFieldConfig } from '../../../components/common-card.types'
 
@@ -46,14 +70,20 @@ interface ContractItem {
   orderNo?: string
   saleOrderNo?: string
   contractNo?: string
+  companyName?: string
+  orderRecvTime?: string
   orderCustCode?: string
   orderCustCname?: string
   orderStatus?: string
   orderTypeCode?: string
   prodClassCode?: string
   prodCode?: string
+  prodCname?: string
   companyCode?: string
   saleOrgCode?: string
+  orderQty?: number | string
+  orderWt?: number | string
+  days?: number | string
   orderCreateTime?: string
 }
 
@@ -96,7 +126,7 @@ const queryFields: CommonCardFieldConfig[] = [
       { label: '已生效', value: 'active' },
       { label: '已作废', value: 'cancelled' },
       { label: '草稿', value: 'draft' }
-    ]
+    ],
   },
   {
     type: 'select',
@@ -172,12 +202,36 @@ const requestPageState = reactive({
   pageSize: 100
 })
 
-const commonTableRef = ref<{ resetPagination: () => void } | null>(null)
+const commonTableRef = ref<{
+  resetPagination: () => void
+  confirmPendingChanges: () => Promise<boolean> | boolean
+  cancelPendingChanges: () => boolean
+} | null>(null)
+const operationMode = ref<'idle' | 'edit' | 'create' | 'delete'>('idle')
+const selectedRows = ref<ContractItem[]>([])
+const selectedKeys = ref<Array<string | number | undefined>>([])
+const tableSelection = { mode: 'multiple' as const, keyField: 'orderNo' }
+const tableEditing = { enabled: true, allowCreate: true, allowDelete: true }
+const actionLocked = computed(() => operationMode.value !== 'idle')
+const selectedWeight = computed(() => {
+  const totalWeight = selectedRows.value.reduce((sum, row) => sum + Number(row.orderWt ?? 0), 0)
+  return totalWeight.toFixed(2)
+})
 
 const tableColumns: CommonTableColumn[] = [
-  { prop: 'companyName', label: '公司账套名称' },
-  { prop: 'orderRecvTime', label: '合同接收时间' },
-  { prop: 'orderTypeCode', label: '合同性质代码' },
+  { prop: 'companyName', label: '公司账套名称', editable: true, editorType: 'input' },
+  { prop: 'orderRecvTime', label: '合同接收时间', editable: true, editorType: 'datetime' },
+  {
+    prop: 'orderTypeCode',
+    label: '合同性质代码',
+    editable: true,
+    editorType: 'select',
+    editorOptions: [
+      { label: '普通', value: 'normal' },
+      { label: '补充', value: 'supplement' },
+      { label: '框架', value: 'framework' }
+    ]
+  },
   { prop: 'exportFlag', label: '出口标记' },
   { prop: 'delivyDateAccu', label: '交货日期精度' },
   { prop: 'apnDesc', label: '最终用途描述' },
@@ -185,8 +239,18 @@ const tableColumns: CommonTableColumn[] = [
   { prop: 'finUserName', label: '最终用户名称' },
   { prop: 'msc', label: '冶金规范码' },
   { prop: 'sgSign', label: '钢牌号' },
-  { prop: 'prodCode', label: '品名代码' },
-  { prop: 'prodCname', label: '品名中文' },
+  {
+    prop: 'prodCode',
+    label: '品名代码',
+    editable: true,
+    editorType: 'select',
+    editorOptions: [
+      { label: '螺纹钢', value: 'rebar' },
+      { label: '热轧卷', value: 'hotroll' },
+      { label: '铝锭', value: 'aluminum' }
+    ]
+  },
+  { prop: 'prodCname', label: '品名中文', editable: true, editorType: 'input' },
   { prop: 'prodAliasCname', label: '品名中文别名' },
   { prop: 'stdSgCode', label: '标准牌号代码' },
   { prop: 'surfaceAccuClassCode', label: '表面精度大类代码' },
@@ -215,7 +279,7 @@ const tableColumns: CommonTableColumn[] = [
   { prop: 'delivyTolMax', label: '交货公差上限' },
   { prop: 'delivyTolMin', label: '交货公差下限' },
   { prop: 'delivyNumTolMinus', label: '交货件数负公差' },
-  { prop: 'orderQty', label: '订货数量' },
+  { prop: 'orderQty', label: '订货数量', editable: true, editorType: 'number', required: '订货数量不能为空' },
   { prop: 'contractConfirmTime', label: '合约确认时间' },
   { prop: 'saleOrderNo', label: '销售合同号' },
   { prop: 'orderCustCode', label: '订货用户代码' },
@@ -472,7 +536,17 @@ const tableColumns: CommonTableColumn[] = [
   { prop: 'mark1', label: '唛头1' },
   { prop: 'rainCoatFlag', label: '加盖雨布标志' },
   { prop: 'markTypeCode', label: '标记（唛头）类型代码' },
-  { prop: 'orderStatus', label: '合同状态' },
+  {
+    prop: 'orderStatus',
+    label: '合同状态',
+    editable: true,
+    editorType: 'select',
+    editorOptions: [
+      { label: '已生效', value: 'active' },
+      { label: '已作废', value: 'cancelled' },
+      { label: '草稿', value: 'draft' }
+    ]
+  },
   { prop: 'detectStdCode', label: '探伤标准代码' },
   { prop: 'wtPerMeter', label: '米重' },
   { prop: 'consigneeEname', label: '收货单位英文名称' },
@@ -514,7 +588,7 @@ const tableColumns: CommonTableColumn[] = [
   { prop: 'sgStdWithVersion', label: '牌号标准（含版本）' },
   { prop: 'baseDiv', label: '基地代码' },
   { prop: 'stdCode', label: '标准代码' },
-  { prop: 'orderWt', label: '订货重量' },
+  { prop: 'orderWt', label: '订货重量', editable: true, editorType: 'number', required: '订货重量不能为空' },
   { prop: 'contractNo', label: '合约号' },
   { prop: 'delivySiteCode', label: '交货地点代码' },
   { prop: 'privateRailwayFullName', label: '专用线全称' },
@@ -705,16 +779,102 @@ const handleQuery = async (options?: { currentPage?: number; pageSize?: number }
     }
     tableData.value = normalizeContractList(result)
     serverTotal.value = tableData.value.length
-  } catch {
+  } catch (error) {
     tableData.value = []
     serverTotal.value = 0
-    ElMessage.error('合同查询失败，请检查接口或参数')
+    ElMessage.error(getErrorMessage(error, '合同查询失败，请检查接口或参数'))
   } finally {
     loading.querying = false
   }
 }
 
 // ================= 交互方法 =================
+
+const getRowBusinessKey = (row: ContractItem) => row.orderNo || row.contractNo || row.saleOrderNo || ''
+
+const sanitizeRow = (row: ContractItem) => {
+  const { __commonTableRowKey, __commonTableSelection, ...rest } = row as ContractItem & {
+    __commonTableRowKey?: string
+    __commonTableSelection?: boolean
+  }
+  return { ...rest }
+}
+
+const handleSelectionChange = (payload: { rows: ContractItem[]; keys: Array<string | number | undefined> }) => {
+  selectedRows.value = payload.rows
+  selectedKeys.value = payload.keys
+}
+
+const handleEditCellChange = (payload: {
+  field: string
+  row: ContractItem
+  applyPatch: (patch: Record<string, unknown>) => void
+}) => {
+  if (payload.field === 'prodCode') {
+    const prodNameMap: Record<string, string> = {
+      rebar: '螺纹钢',
+      hotroll: '热轧卷',
+      aluminum: '铝锭'
+    }
+    payload.applyPatch({ prodCname: prodNameMap[String(payload.row.prodCode ?? '')] ?? '' })
+  }
+
+  if (payload.field === 'orderQty' || payload.field === 'orderWt') {
+    const quantity = Number(payload.row.orderQty ?? 0)
+    const weight = Number(payload.row.orderWt ?? 0)
+    payload.applyPatch({ days: quantity > 0 ? Math.max(1, Math.round(weight / Math.max(quantity, 1))) : 0 })
+  }
+}
+
+const handleEditSubmit = (payload: { rows: ContractItem[] }) => {
+  const patchMap = new Map(payload.rows.map((row) => [getRowBusinessKey(row), sanitizeRow(row)]))
+  tableData.value = tableData.value.map((row) => {
+    const businessKey = getRowBusinessKey(row)
+    return patchMap.has(businessKey) ? { ...row, ...patchMap.get(businessKey) } : row
+  })
+  ElMessage.success(`已提交 ${payload.rows.length} 条编辑数据`)
+}
+
+const handleCreateSubmit = (payload: { rows: ContractItem[] }) => {
+  tableData.value = [...tableData.value, ...payload.rows.map((row) => sanitizeRow(row))]
+  serverTotal.value = tableData.value.length
+  ElMessage.success(`已新增 ${payload.rows.length} 条数据`)
+}
+
+const handleDeleteSubmit = (payload: { keys: Array<string | number | undefined> }) => {
+  const keySet = new Set(payload.keys.map((key) => String(key ?? '')))
+  tableData.value = tableData.value.filter((row) => !keySet.has(String(row.orderNo ?? '')))
+  serverTotal.value = tableData.value.length
+  selectedRows.value = []
+  selectedKeys.value = []
+  ElMessage.success(`已提交 ${payload.keys.length} 条删除请求`)
+}
+
+const startEditMode = () => {
+  operationMode.value = 'edit'
+}
+
+const startCreateMode = () => {
+  operationMode.value = 'create'
+}
+
+const startDeleteMode = () => {
+  operationMode.value = 'delete'
+}
+
+const confirmCurrentAction = async () => {
+  const result = await commonTableRef.value?.confirmPendingChanges?.()
+  if (result) {
+    operationMode.value = 'idle'
+  } else {
+    ElMessage.warning('请先完成必填项或修正校验错误')
+  }
+}
+
+const cancelCurrentAction = () => {
+  commonTableRef.value?.cancelPendingChanges?.()
+  operationMode.value = 'idle'
+}
 
 /**
  * 重置查询条件并重置分页
@@ -767,11 +927,11 @@ const handlePaginationChange = (payload: { currentPage: number; pageSize: number
   margin-bottom: 0;
 }
 
-:deep(.query-form .el-form-item) {
+:v-deep(.query-form .el-form-item) {
   margin-bottom: 8px;
 }
 
-:deep(.query-form .el-form-item__label) {
+:v-deep(.query-form .el-form-item__label) {
   white-space: nowrap;
   justify-content: flex-start;
   text-align: left;
@@ -779,22 +939,22 @@ const handlePaginationChange = (payload: { currentPage: number; pageSize: number
   min-width: 0;
 }
 
-:deep(.query-form .el-form-item__content) {
+:v-deep(.query-form .el-form-item__content) {
   min-width: 0;
 }
 
-:deep(.query-form .el-input),
-:deep(.query-form .el-select),
-:deep(.query-form .el-date-editor) {
+:v-deep(.query-form .el-input),
+:v-deep(.query-form .el-select),
+:v-deep(.query-form .el-date-editor) {
   width: 100%;
 }
 
-:deep(.query-form .el-date-editor.el-input__wrapper) {
+:v-deep(.query-form .el-date-editor.el-input__wrapper) {
   width: 100%;
 }
 
-:deep(.query-form .el-input__wrapper),
-:deep(.query-form .el-select__wrapper) {
+:v-deep(.query-form .el-input__wrapper),
+:v-deep(.query-form .el-select__wrapper) {
   min-width: 0;
 }
 
@@ -812,8 +972,22 @@ const handlePaginationChange = (payload: { currentPage: number; pageSize: number
 
 .query-action-wrap {
   display: flex;
-  justify-content: flex-start;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+}
+
+.query-action-left,
+.query-action-right {
+  display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.table-toolbar-summary {
+  color: #606266;
+  font-size: 12px;
+  white-space: nowrap;
 }
 </style>

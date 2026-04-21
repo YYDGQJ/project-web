@@ -14,6 +14,7 @@ declare module 'vue' {
     AppHeader: typeof import('./components/AppHeader.vue')['default']
     CommonQueryCard: typeof import('./components/CommonQueryCard.vue')['default']
     CommonTable: typeof import('./components/CommonTable.vue')['default']
+    CommonTable: typeof import('./components/table/CommonTable.vue')['default']
     CommonTableSearchIcon: typeof import('./components/icons/CommonTableSearchIcon.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElAside: typeof import('element-plus/es')['ElAside']

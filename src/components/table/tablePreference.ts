@@ -1,11 +1,7 @@
-import { post } from './request'
+import { post } from '../../common/request'
 
 const USER_INFO_KEY = 'currentUserInfo'
 const LOCAL_STORAGE_PREFIX = 'commonTablePreference'
-
-// const URL = 'http://localhost:3080/api'
-// const TABLE_PREFERENCE_LOAD_URL =URL +'/tableConfig/load'
-// const TABLE_PREFERENCE_SAVE_URL = URL +'/tableConfig/save'
 
 const env = import.meta.env as Record<string, string | undefined>
 const TABLE_PREFERENCE_LOAD_URL =
@@ -20,8 +16,6 @@ const TABLE_PREFERENCE_SAVE_URL =
 export interface CommonTablePreference {
   visibleColumnKeys: string[]
   columnOrderKeys: string[]
-  filterEnabledKeys: string[]
-  sortEnabledKeys: string[]
   resizedColumnWidths: Record<string, number>
   pageSize: number
 }
@@ -95,13 +89,22 @@ const normalizePreference = (raw: unknown): CommonTablePreference | null => {
   }
 
   const source = raw as Record<string, unknown>
+  const hasPreferenceFields =
+    'visibleColumnKeys' in source ||
+    'columnOrderKeys' in source ||
+    'resizedColumnWidths' in source ||
+    'pageSize' in source
+
+  // 后端未配置时常返回业务壳对象，避免将其误判为“空偏好”。
+  if (!hasPreferenceFields) {
+    return null
+  }
+
   const pageSize = Number(source.pageSize)
 
   return {
     visibleColumnKeys: normalizeStringArray(source.visibleColumnKeys),
     columnOrderKeys: normalizeStringArray(source.columnOrderKeys),
-    filterEnabledKeys: normalizeStringArray(source.filterEnabledKeys),
-    sortEnabledKeys: normalizeStringArray(source.sortEnabledKeys),
     resizedColumnWidths: normalizeWidthMap(source.resizedColumnWidths),
     pageSize: Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 100
   }
@@ -134,7 +137,7 @@ const writeLocalPreference = (userId: string, routePath: string, key: string, pr
       JSON.stringify(preference)
     )
   } catch {
-    // ignore local persistence errors
+    // 忽略本地写入异常，不影响页面交互
   }
 }
 
@@ -168,7 +171,7 @@ export const loadCommonTablePreference = async (routePath: string, key: string):
       return preference
     }
   } catch {
-    // ignore remote errors and fallback to local cache
+    // 远端失败时降级读取本地缓存
   }
 
   return readLocalPreference(identity.userId, routePath, key)
@@ -194,6 +197,6 @@ export const saveCommonTablePreference = async (
       config: preference
     })
   } catch {
-    // ignore remote errors to keep UI silent
+    // 远端写入失败时保持静默，避免打断用户操作
   }
 }

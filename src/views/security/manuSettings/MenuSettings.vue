@@ -15,6 +15,7 @@
           <template #enabledSlot="{ row }">
             {{ row.enabled ? '是' : '否' }}
           </template>
+
         </CommonTable>
       </div>
     </el-card>
@@ -22,12 +23,13 @@
 </template>
 
 <script setup lang="ts">
+// 组件说明：MenuSettings 组件，负责当前页面的结构与交互。
 import { ref } from 'vue'
 import {
   menuRouteTemplates,
   type MenuRouteItem
 } from './menuRoutes'
-import CommonTable, { type CommonTableColumn } from '../../../components/CommonTable.vue'
+import CommonTable, { type CommonTableColumn } from '../../../components/table/CommonTable.vue'
 
 const menuRoutes = ref<MenuRouteItem[]>(JSON.parse(JSON.stringify(menuRouteTemplates)))
 
@@ -56,7 +58,7 @@ const onRowReorder = (data: MenuRouteItem[]) => {
   display: flex;
   flex-direction: column;
 }
-:deep(.security-card .el-card__body) {
+:v-deep(.security-card .el-card__body) {
   height: 100%;
   min-height: 0;
   display: flex;

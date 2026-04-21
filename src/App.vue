@@ -45,6 +45,7 @@
 </template>
 
 <script setup lang="ts">
+// 组件说明：App 组件，负责当前页面的结构与交互。
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { TabsPaneContext } from 'element-plus'
@@ -382,20 +383,20 @@ onUnmounted(() => {
   min-height: 0;
   overflow: hidden;
 }
-:deep(.opened-tabs .el-tabs__header) {
+:v-deep(.opened-tabs .el-tabs__header) {
   margin-bottom: 0;
   border-bottom: none;
 }
-:deep(.opened-tabs .el-tabs__nav-wrap) {
+:v-deep(.opened-tabs .el-tabs__nav-wrap) {
   padding: 0;
 }
-:deep(.opened-tabs .el-tabs__nav-wrap::after) {
+:v-deep(.opened-tabs .el-tabs__nav-wrap::after) {
   display: none;
 }
-:deep(.opened-tabs.el-tabs--card > .el-tabs__header .el-tabs__nav) {
+:v-deep(.opened-tabs.el-tabs--card > .el-tabs__header .el-tabs__nav) {
   border: none;
 }
-:deep(.opened-tabs .el-tabs__item) {
+:v-deep(.opened-tabs .el-tabs__item) {
   height: 26px;
   line-height: 26px;
   font-size: 12px;
@@ -404,16 +405,16 @@ onUnmounted(() => {
   margin-right: 8px;
   padding: 0 12px;
 }
-:deep(.opened-tabs.el-tabs--card > .el-tabs__header .el-tabs__item) {
+:v-deep(.opened-tabs.el-tabs--card > .el-tabs__header .el-tabs__item) {
   border: none;
   background: #f8f9fc;
 }
-:deep(.opened-tabs.el-tabs--card > .el-tabs__header .el-tabs__item.is-active) {
+:v-deep(.opened-tabs.el-tabs--card > .el-tabs__header .el-tabs__item.is-active) {
   color: #5b6b85;
   background: #eaf3ff;
   border: none;
 }
-:deep(.opened-tabs .el-tabs__item .is-icon-close) {
+:v-deep(.opened-tabs .el-tabs__item .is-icon-close) {
   color: #a8b0bd;
 }
 .drag-handle {
