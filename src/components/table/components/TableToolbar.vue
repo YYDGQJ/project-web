@@ -6,6 +6,8 @@
       <slot name="info"></slot>
     </div>
 
+    <span class="common-table-toolbar-spacer" aria-hidden="true"></span>
+
     <div v-if="operationMode === 'create'" class="common-table-toolbar-create-actions">
       <button
         type="button"
@@ -24,8 +26,6 @@
         删除新增行
       </button>
     </div>
-
-    <span class="common-table-toolbar-spacer" aria-hidden="true"></span>
 
     <button
       v-if="hasTreeData && toolbarConfig.showExpandCollapse !== false"
@@ -57,9 +57,16 @@
           <button type="button" class="common-table-toolbar-quick-btn" @click="emit('enable-all-visible')">全开</button>
           <button type="button" class="common-table-toolbar-quick-btn" @click="emit('disable-all-visible')">全关</button>
         </div>
+        <el-input
+          v-model="columnQuery"
+          clearable
+          size="small"
+          class="common-table-toolbar-search"
+          placeholder="查询列信息"
+        />
         <div class="common-table-toolbar-group common-table-col-order-list">
           <div
-            v-for="column in orderedEnhancedColumns"
+            v-for="column in filteredOrderedEnhancedColumns"
             :key="`col-order-${column.key}`"
             class="common-table-col-order-item"
             :class="{ 'is-col-drag-over': colDragOverKey === column.key && colDraggingKey !== column.key }"
@@ -77,6 +84,9 @@
             >
               {{ column.label }}
             </el-checkbox>
+          </div>
+          <div v-if="!filteredOrderedEnhancedColumns.length" class="common-table-panel__empty">
+            无匹配项
           </div>
         </div>
       </div>
@@ -97,10 +107,11 @@
 
 <script setup lang="ts">
 // 组件说明：TableToolbar 组件，负责当前页面的结构与交互。
+import { computed, ref } from 'vue'
 import type { CheckboxValueType } from 'element-plus'
 import type { EnhancedColumn } from '../types'
 
-defineProps<{
+const props = defineProps<{
   name?: string
   hasTreeData: boolean
   orderedEnhancedColumns: EnhancedColumn[]
@@ -132,6 +143,17 @@ const emit = defineEmits<{
   'add-row': []
   'remove-new-rows': []
 }>()
+
+const columnQuery = ref('')
+
+const normalizedColumnQuery = computed(() => columnQuery.value.trim().toLowerCase())
+
+const filteredOrderedEnhancedColumns = computed(() => {
+  if (!normalizedColumnQuery.value) return props.orderedEnhancedColumns
+  return props.orderedEnhancedColumns.filter((column) =>
+    String(column.label ?? '').toLowerCase().includes(normalizedColumnQuery.value)
+  )
+})
 
 const handleColumnVisibleChange = (key: string, checked: CheckboxValueType) => {
   emit('toggle-column-visible', key, Boolean(checked))

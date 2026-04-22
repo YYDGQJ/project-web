@@ -70,6 +70,11 @@
   padding: 4px 0;
 }
 
+.common-table-toolbar-search,
+.common-table-filter-panel__search {
+  margin-bottom: 8px;
+}
+
 .common-table-toolbar-group {
   max-height: 200px;
   overflow-y: auto;
@@ -137,6 +142,12 @@
 
 .common-table-col-order-item:active {
   cursor: grabbing;
+}
+
+.common-table-panel__empty {
+  padding: 8px 2px;
+  color: #909399;
+  font-size: 12px;
 }
 
 .common-table-pagination {
