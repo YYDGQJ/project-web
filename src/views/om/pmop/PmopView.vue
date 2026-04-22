@@ -23,15 +23,17 @@
         :editing="tableEditing"
         name="合同信息列表"
         row-key="orderNo"
+        :loading-config="{ text: '数据加载中，请稍候...' }"
         @pagination-change="handlePaginationChange"
         @selection-change="handleSelectionChange"
         @edit-cell-change="handleEditCellChange"
+        @add-cell-change="handleAddCellChange"
         @edit-submit="handleEditSubmit"
         @create-submit="handleCreateSubmit"
         @delete-submit="handleDeleteSubmit"
         border
         stripe
-        table-style="width: 100%; height: 100%;"
+        table-style="width: 100%; height: 50%;"
       >
         <template #toolbar-info>
           <div class="table-toolbar-summary">
@@ -213,13 +215,27 @@ const selectedKeys = ref<Array<string | number | undefined>>([])
 const tableSelection = { mode: 'multiple' as const, keyField: 'orderNo' }
 const tableEditing = { enabled: true, allowCreate: true, allowDelete: true }
 const actionLocked = computed(() => operationMode.value !== 'idle')
+const operationLogs = ref<Array<{ id: number; time: string; type: string; message: string; payload: unknown }>>([])
+let operationLogSeed = 0
+
+const pushOperationLog = (type: string, message: string, payload: unknown) => {
+  operationLogSeed += 1
+  const nextLog = {
+    id: operationLogSeed,
+    time: new Date().toLocaleString('zh-CN'),
+    type,
+    message,
+    payload
+  }
+  operationLogs.value = [nextLog, ...operationLogs.value].slice(0, 30)
+}
 const selectedWeight = computed(() => {
   const totalWeight = selectedRows.value.reduce((sum, row) => sum + Number(row.orderWt ?? 0), 0)
   return totalWeight.toFixed(2)
 })
 
 const tableColumns: CommonTableColumn[] = [
-  { prop: 'companyName', label: '公司账套名称', editable: true, editorType: 'input' },
+  { prop: 'orderNo', label: '合同号', required: '合同号不能为空', fixed: 'left' ,backgroundColor:'red'},
   { prop: 'orderRecvTime', label: '合同接收时间', editable: true, editorType: 'datetime' },
   {
     prop: 'orderTypeCode',
@@ -237,6 +253,7 @@ const tableColumns: CommonTableColumn[] = [
   { prop: 'apnDesc', label: '最终用途描述' },
   { prop: 'finUserCode', label: '最终用户代码' },
   { prop: 'finUserName', label: '最终用户名称' },
+  { prop: 'companyName', label: '公司账套名称', editable: true, editorType: 'input', fixed: 'left',color: 'red'},
   { prop: 'msc', label: '冶金规范码' },
   { prop: 'sgSign', label: '钢牌号' },
   {
@@ -568,7 +585,6 @@ const tableColumns: CommonTableColumn[] = [
   { prop: 'trimType', label: '边缘状态' },
   { prop: 'orderThickTolMin', label: '订货厚度公差下限' },
   { prop: 'color3', label: '色标颜色3' },
-  { prop: 'orderNo', label: '合同号' },
   { prop: 'smokeFlag', label: '熏蒸标志' },
   { prop: 'orderModiRemark', label: '合同变更备注' },
   { prop: 'markTypeDesc', label: '标记（唛头）类型说明' },
@@ -801,32 +817,29 @@ const sanitizeRow = (row: ContractItem) => {
 }
 
 const handleSelectionChange = (payload: { rows: ContractItem[]; keys: Array<string | number | undefined> }) => {
+  console.log('选择变化：', payload);
   selectedRows.value = payload.rows
   selectedKeys.value = payload.keys
+  pushOperationLog('selection-change', `多选变化：${payload.rows.length} 条`, {
+    keys: payload.keys,
+    rowsPreview: payload.rows.slice(0, 5)
+  })
 }
 
-const handleEditCellChange = (payload: {
-  field: string
-  row: ContractItem
-  applyPatch: (patch: Record<string, unknown>) => void
-}) => {
-  if (payload.field === 'prodCode') {
-    const prodNameMap: Record<string, string> = {
-      rebar: '螺纹钢',
-      hotroll: '热轧卷',
-      aluminum: '铝锭'
-    }
-    payload.applyPatch({ prodCname: prodNameMap[String(payload.row.prodCode ?? '')] ?? '' })
-  }
+const handleEditCellChange = (payload: { editRows: ContractItem[] }) => {
+  console.log('编辑返回信息', payload)
+}
 
-  if (payload.field === 'orderQty' || payload.field === 'orderWt') {
-    const quantity = Number(payload.row.orderQty ?? 0)
-    const weight = Number(payload.row.orderWt ?? 0)
-    payload.applyPatch({ days: quantity > 0 ? Math.max(1, Math.round(weight / Math.max(quantity, 1))) : 0 })
-  }
+const handleAddCellChange = (payload: { addRows: ContractItem[] }) => {
+  console.log('新增行信息', payload)
 }
 
 const handleEditSubmit = (payload: { rows: ContractItem[] }) => {
+  console.log('编辑提交：', payload); 
+  pushOperationLog('edit-submit', `编辑提交：${payload.rows.length} 条`, {
+    rows: payload.rows.map((row) => sanitizeRow(row))
+  })
+
   const patchMap = new Map(payload.rows.map((row) => [getRowBusinessKey(row), sanitizeRow(row)]))
   tableData.value = tableData.value.map((row) => {
     const businessKey = getRowBusinessKey(row)
@@ -836,12 +849,20 @@ const handleEditSubmit = (payload: { rows: ContractItem[] }) => {
 }
 
 const handleCreateSubmit = (payload: { rows: ContractItem[] }) => {
+  console.log('新增提交：', payload); 
+  pushOperationLog('create-submit', `新增提交：${payload.rows.length} 条`, {
+    rows: payload.rows.map((row) => sanitizeRow(row))
+  })
   tableData.value = [...tableData.value, ...payload.rows.map((row) => sanitizeRow(row))]
   serverTotal.value = tableData.value.length
   ElMessage.success(`已新增 ${payload.rows.length} 条数据`)
 }
 
 const handleDeleteSubmit = (payload: { keys: Array<string | number | undefined> }) => {
+  console.log('删除提交：', payload); 
+  pushOperationLog('delete-submit', `删除提交：${payload.keys.length} 条`, {
+    keys: payload.keys
+  })
   const keySet = new Set(payload.keys.map((key) => String(key ?? '')))
   tableData.value = tableData.value.filter((row) => !keySet.has(String(row.orderNo ?? '')))
   serverTotal.value = tableData.value.length
@@ -906,6 +927,7 @@ const handleSearchSubmit = () => {
  * 分页变化时触发，带上新分页参数重新查询
  */
 const handlePaginationChange = (payload: { currentPage: number; pageSize: number; reason: 'page' | 'size' | 'reset' }) => {
+  console.log('分页变化：', payload);
   handleQuery({
     currentPage: payload.currentPage,
     pageSize: payload.pageSize
@@ -989,5 +1011,68 @@ const handlePaginationChange = (payload: { currentPage: number; pageSize: number
   color: #606266;
   font-size: 12px;
   white-space: nowrap;
+}
+
+.operation-log-panel {
+  margin-top: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fafafa;
+  padding: 8px 10px;
+}
+
+.operation-log-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #303133;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.operation-log-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.operation-log-panel__item {
+  background: #ffffff;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.operation-log-panel__meta {
+  font-size: 12px;
+  color: #909399;
+}
+
+.operation-log-panel__message {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #303133;
+}
+
+.operation-log-panel__payload {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  background: #f4f6f8;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #606266;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.operation-log-panel__empty {
+  font-size: 12px;
+  color: #909399;
+  padding: 6px 2px;
 }
 </style>

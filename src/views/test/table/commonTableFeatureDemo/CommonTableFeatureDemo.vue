@@ -33,6 +33,7 @@
           stripe
           @selection-change="handleSelectionChange"
           @edit-cell-change="handleEditCellChange"
+          @add-cell-change="handleAddCellChange"
           @edit-submit="handleEditSubmit"
           @create-submit="handleCreateSubmit"
           @delete-submit="handleDeleteSubmit"
@@ -161,15 +162,12 @@ const handleSelectionChange = (payload: { rows: DemoRow[] }) => {
   selectedRows.value = payload.rows
 }
 
-const handleEditCellChange = (payload: { field: string; row: DemoRow; applyPatch: (patch: Record<string, unknown>) => void }) => {
-  if (payload.field === 'status') {
-    const levelMap: Record<string, string> = {
-      draft: 'C',
-      active: 'A',
-      cancelled: 'B'
-    }
-    payload.applyPatch({ level: levelMap[payload.row.status] ?? 'C' })
-  }
+const handleEditCellChange = (payload: { editRows: DemoRow[] }) => {
+  console.log('edit-cell-change', payload)
+}
+
+const handleAddCellChange = (payload: { addRows: DemoRow[] }) => {
+  console.log('add-cell-change', payload)
 }
 
 const handleEditSubmit = (payload: { rows: DemoRow[] }) => {

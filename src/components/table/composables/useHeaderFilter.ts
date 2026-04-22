@@ -26,7 +26,11 @@ export function useHeaderFilter(
   // 当前激活列由 panelKey 派生，避免额外维护冗余对象状态。
   const activeHeaderFilterColumn = computed(() => {
     if (!headerFilterPanelKey.value) return null
-    return enhancedColumns.value.find((col) => col.key === headerFilterPanelKey.value) ?? null
+    return (
+      visibleOrderedColumns.value.find((col) => col.key === headerFilterPanelKey.value) ??
+      enhancedColumns.value.find((col) => col.key === headerFilterPanelKey.value) ??
+      null
+    )
   })
 
   // 面板位置约束：始终限制在容器可视区内，避免越界被裁剪。
@@ -122,12 +126,8 @@ export function useHeaderFilter(
 
     headerFilterAnchors.value = anchors
 
-    if (
-      headerFilterPanelKey.value &&
-      !anchors.some((a) => a.key === headerFilterPanelKey.value)
-    ) {
-      closeHeaderFilterPanel()
-    }
+    // 当列布局频繁重算（如列拖拽、固定列切换）时，锚点可能暂时缺失。
+    // 此时不强制关闭面板，避免出现“点击后马上收起”的体验问题。
   }
 
   // 打开面板前先初始化草稿，确保当前面板展示的是最新应用态。
@@ -149,9 +149,13 @@ export function useHeaderFilter(
 
   const handleGlobalLeftClickCloseHeaderFilter = (event: MouseEvent) => {
     if (event.button !== 0 || !headerFilterPanelVisible.value) return
-    const target = event.target as HTMLElement | null
-    if (target?.closest('.common-table-header-filter-panel')) return
-    if (target?.closest('.common-table-header-filter-btn')) return
+    const target = event.target
+    if (!(target instanceof Element)) {
+      closeHeaderFilterPanel()
+      return
+    }
+    if (target.closest('.common-table-header-filter-panel')) return
+    if (target.closest('.common-table-header-filter-btn')) return
     closeHeaderFilterPanel()
   }
 

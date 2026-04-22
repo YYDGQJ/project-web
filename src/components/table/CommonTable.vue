@@ -38,12 +38,12 @@
       ref="vtableRef"
       class="common-table-vtable-wrapper"
       style="width: 100%; height: 100%;"
-      @click="closeHeaderFilterPanel"
+      @click="handleVtableWrapperClick"
     ></div>
 
     <div v-if="props.loading" class="common-table-loading-mask">
       <el-icon class="common-table-loading-mask__icon"><Loading /></el-icon>
-      <span>加载中...</span>
+      <span>{{ props.loadingConfig?.text ?? '加载中...' }}</span>
     </div>
 
     <!-- 列头筛选浮层按钮 -->
@@ -114,20 +114,21 @@
         <el-option
           v-for="option in activeEditor.options"
           :key="String(option.value)"
-          :label="option.label"
-          :value="option.value"
+          :label="option.value + '_' + option.label"
+          :value="option.value+ '_' + option.label"
         />
       </el-select>
-      <el-date-picker
-        v-else
-        v-model="activeEditorValue"
-        :type="activeEditor.editorType === 'datetime' ? 'datetime' : 'date'"
-        value-format="YYYY-MM-DD HH:mm:ss"
-        size="small"
-        style="width: 100%;"
-        @change="commitActiveEditor"
-        @visible-change="handleEditorVisibleChange"
-      />
+      <el-config-provider v-else :locale="zhCnLocale">
+        <el-date-picker
+          v-model="activeEditorValue"
+          :type="activeEditor.editorType === 'datetime' ? 'datetime' : 'date'"
+          value-format="YYYY-MM-DD HH:mm:ss"
+          size="small"
+          style="width: 100%;"
+          @change="commitActiveEditor"
+          @visible-change="handleEditorVisibleChange"
+        />
+      </el-config-provider>
     </div>
 
     <!-- 行拖拽指示线 -->
@@ -182,10 +183,10 @@ export { type CommonTableColumn } from './types'
  * 通过组合式模块整合筛选、排序、分页、编辑、导出、树形与拖拽能力，
  * 并对外提供统一事件协议。
  */
-import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref, watch, nextTick, onMounted, onUnmounted, useAttrs } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import './common-table-shared.css'
 
 import CommonTableSearchIcon from '../icons/CommonTableSearchIcon.vue'
@@ -204,11 +205,13 @@ import type {
   CommonTableEditingConfig,
   CommonTableSelectionChangePayload,
   CommonTableEditCellChangePayload,
+  CommonTableAddCellChangePayload,
   CommonTableSubmitPayload,
   CommonTableEditorOption,
   CommonTableEditorType,
   CommonTableToolbarConfig,
   CommonTablePaginationConfig,
+  CommonTableLoadingConfig,
   CommonTableVTableOverrides
 } from './types'
 import { mergeTableOptions } from './utils/optionUtils'
@@ -264,6 +267,7 @@ const props = withDefaults(
     editing?: CommonTableEditingConfig
     toolbarConfig?: CommonTableToolbarConfig
     paginationConfig?: CommonTablePaginationConfig
+    loadingConfig?: CommonTableLoadingConfig
     vtableOverrides?: CommonTableVTableOverrides
     preferenceEnabled?: boolean
     repairVisibleColumnsWhenEmpty?: boolean
@@ -298,6 +302,7 @@ const props = withDefaults(
     paginationConfig: () => ({
       showTotal: true
     }),
+    loadingConfig: () => ({}),
     vtableOverrides: () => ({}),
     preferenceEnabled: true,
     repairVisibleColumnsWhenEmpty: false,
@@ -312,10 +317,25 @@ const emit = defineEmits<{
   'pagination-change': [payload: { currentPage: number; pageSize: number; reason: 'page' | 'size' | 'reset' }]
   'selection-change': [payload: CommonTableSelectionChangePayload]
   'edit-cell-change': [payload: CommonTableEditCellChangePayload]
+  'add-cell-change': [payload: CommonTableAddCellChangePayload]
   'edit-submit': [payload: CommonTableSubmitPayload]
   'create-submit': [payload: CommonTableSubmitPayload]
   'delete-submit': [payload: CommonTableSubmitPayload]
 }>()
+
+const attrs = useAttrs()
+
+const directVTableOverrides = computed<Record<string, unknown>>(() => {
+  const entries = Object.entries(attrs).filter(([key]) => {
+    if (key === 'class' || key === 'style' || key === 'id' || key === 'role' || key === 'title') {
+      return false
+    }
+    if (key.startsWith('on')) return false
+    if (key.startsWith('aria-') || key.startsWith('data-')) return false
+    return true
+  })
+  return Object.fromEntries(entries)
+})
 
 // ── 页面节点引用 ──
 const vtableRef = ref<HTMLElement | null>(null)
@@ -423,11 +443,13 @@ const workingData = ref<any[]>([])
 const idleData = ref<any[]>([])
 const originalDataSnapshot = ref<any[]>([])
 const editedRowKeys = ref<Set<string>>(new Set())
+const dirtyRowKeys = ref<Set<string>>(new Set())
 const newRowKeys = ref<Set<string>>(new Set())
 const selectedRowKeySet = ref<Set<string>>(new Set())
 const invalidCellMessages = ref<Record<string, string>>({})
 const activeEditorValue = ref<any>('')
 const editorInputRef = ref()
+const zhCnLocale = zhCn
 
 const activeEditor = ref<{
   visible: boolean
@@ -455,6 +477,7 @@ const initializeWorkingState = (options?: { preserveSelection?: boolean }) => {
   workingData.value = normalized
   originalDataSnapshot.value = cloneRows(normalized)
   editedRowKeys.value = new Set()
+  dirtyRowKeys.value = new Set()
   newRowKeys.value = new Set()
   invalidCellMessages.value = {}
   selectedRowKeySet.value = preservedSelection
@@ -806,6 +829,15 @@ const handleHeaderFilterConfirm = () => {
   closeHeaderFilterPanel()
 }
 
+const handleVtableWrapperClick = (event: MouseEvent) => {
+  const target = event.target
+  if (target instanceof Element) {
+    if (target.closest('.common-table-header-filter-btn')) return
+    if (target.closest('.common-table-header-filter-panel')) return
+  }
+  closeHeaderFilterPanel()
+}
+
 // ── 单元格文字选择 ──
 const {
   textSelectTextareaRef,
@@ -882,17 +914,6 @@ watch(
 )
 
 // ── 列辅助方法 ──
-// 判断列是否为“排序序号列”，用于行拖拽视觉提示
-const isOrderColumn = (column: EnhancedColumn) =>
-  Boolean(resolvedOrderColumnKey.value && column.key === resolvedOrderColumnKey.value)
-
-// 生成列样式类名：按列宽模式和是否序号列组合
-
-const getColumnClassName = (column: EnhancedColumn) => {
-  const className =
-    column.className || (hasResolvedColumnWidth(column) ? 'common-table-col-fixed' : 'common-table-col-auto')
-  return isOrderColumn(column) ? `${className} common-table-order-drag-col` : className
-}
 
 // 根据运行时字段名定位到增强列定义
 
@@ -975,18 +996,39 @@ const isHeaderEditableColumn = (column: CommonTableColumn) => {
   return false
 }
 
-const markRowAsEdited = (rowKey: string) => {
-  if (!newRowKeys.value.has(rowKey)) {
-    editedRowKeys.value = new Set([...editedRowKeys.value, rowKey])
+const buildCleanRows = (rows: any[]) =>
+  rows.map(({ __commonTableRowKey, __commonTableSelection, ...rest }) => rest)
+
+const buildEditPayload = (): CommonTableEditCellChangePayload => ({
+  editRows: buildCleanRows(
+    flattenRows(workingData.value).filter((r) => editedRowKeys.value.has(String(getRowIdentity(r))))
+  )
+})
+
+const buildAddPayload = (): CommonTableAddCellChangePayload => ({
+  addRows: buildCleanRows(
+    flattenRows(workingData.value).filter((r) => {
+      const rowKey = String(getRowIdentity(r))
+      return newRowKeys.value.has(rowKey) && selectedRowKeySet.value.has(rowKey)
+    })
+  )
+})
+
+const emitCellChange = () => {
+  if (props.operationMode === 'create') {
+    emit('add-cell-change', buildAddPayload())
+    return
+  }
+  if (props.operationMode === 'edit') {
+    emit('edit-cell-change', buildEditPayload())
   }
 }
 
-const patchRowByKey = (rowKey: string | number, patch: Record<string, unknown>) => {
-  const target = findRowByKey(workingData.value, rowKey)
-  if (!target) return
-  Object.assign(target, patch)
-  markRowAsEdited(String(rowKey))
-  refreshTableRecords()
+const markRowAsEdited = (rowKey: string) => {
+  if (!newRowKeys.value.has(rowKey)) {
+    editedRowKeys.value = new Set([...editedRowKeys.value, rowKey])
+    dirtyRowKeys.value = new Set([...dirtyRowKeys.value, rowKey])
+  }
 }
 
 const resetActiveEditor = () => {
@@ -1078,6 +1120,7 @@ const commitActiveEditor = () => {
     return
   }
   target[activeEditor.value.field] = activeEditorValue.value
+  let pendingValidationMessage = ''
   const editingColumn = props.columns.find((column) => column.prop === activeEditor.value.field)
   if (editingColumn) {
     const requiredMessage = typeof editingColumn.required === 'string'
@@ -1092,21 +1135,24 @@ const commitActiveEditor = () => {
     }
     if (validationMessage) {
       setInvalidCellMessage(activeEditor.value.rowKey, activeEditor.value.field, validationMessage)
+      pendingValidationMessage = validationMessage
     } else {
       clearInvalidCellMessage(activeEditor.value.rowKey, activeEditor.value.field)
     }
   }
   markRowAsEdited(String(activeEditor.value.rowKey))
-  emit('edit-cell-change', {
-    mode: props.operationMode as 'edit' | 'create',
-    row: target,
-    rowKey: getRowIdentity(target),
-    field: activeEditor.value.field,
-    value: activeEditorValue.value,
-    applyPatch: (patch: Record<string, unknown>) => patchRowByKey(getRowIdentity(target), patch)
-  })
+  emitCellChange()
   resetActiveEditor()
   refreshTableRecords()
+  if (pendingValidationMessage) {
+    nextTick(() => {
+      ElMessage({
+        type: 'warning',
+        message: pendingValidationMessage,
+        grouping: false
+      })
+    })
+  }
 }
 
 const openEditorForCell = (row: any, column: CommonTableColumn, rect: { left: number; top: number; width: number; height: number }) => {
@@ -1142,8 +1188,14 @@ const handleAddRow = () => {
     return acc
   }, {})
   newRow.__commonTableRowKey = `created-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
-  workingData.value = [...workingData.value, newRow]
-  newRowKeys.value = new Set([...newRowKeys.value, String(newRow.__commonTableRowKey)])
+  const newRowKey = String(newRow.__commonTableRowKey)
+  workingData.value = [newRow, ...workingData.value]
+  newRowKeys.value = new Set([...newRowKeys.value, newRowKey])
+  // 新增行默认不计入 addRows，只有用户勾选后才进入 addRows。
+  selectedRowKeySet.value = new Set(
+    [...selectedRowKeySet.value].filter((key) => key !== newRowKey)
+  )
+  emitCellChange()
   refreshTableRecords()
 }
 
@@ -1159,6 +1211,7 @@ const handleRemoveNewRows = () => {
     .map((row) => ({ ...row }))
   newRowKeys.value = new Set([...newRowKeys.value].filter((key) => !removable.has(key)))
   selectedRowKeySet.value = new Set([...selectedRowKeySet.value].filter((key) => !removable.has(key)))
+  emitCellChange()
   emitSelectionChange()
   refreshTableRecords()
 }
@@ -1179,7 +1232,10 @@ const confirmPendingChanges = async () => {
     return true
   }
   if (props.operationMode === 'create') {
-    const rows = flattenRows(workingData.value).filter((row) => newRowKeys.value.has(String(getRowIdentity(row))))
+    const rows = flattenRows(workingData.value).filter((row) => {
+      const rowKey = String(getRowIdentity(row))
+      return newRowKeys.value.has(rowKey) && selectedRowKeySet.value.has(rowKey)
+    })
     const invalids = validateRows(rows)
     const firstMessage = Object.values(invalids)[0]
     refreshTableRecords()
@@ -1235,21 +1291,91 @@ const buildContextMenuItems = (field: unknown, row: number, col: number, table?:
 // 组装 VTable 所需完整配置（列、数据、交互、主题、尺寸）
 const buildVTableOption = () => {
   const filteredColumns = visibleOrderedColumns.value.filter((col) => col.prop)
-  const dataColumns = filteredColumns.map((col, idx) => ({
-    field: col.prop as string,
-    caption: col.label,
-    // 最后一列不设置宽度让 autoFillWidth 自动填充，其他列使用显式宽度
-    width: idx === filteredColumns.length - 1 ? undefined : (getResolvedColumnWidth(col) ?? getResolvedColumnMinWidth(col)),
-    minWidth: getResolvedColumnMinWidth(col),
-    sort: isColumnSortEnabled(col.key),
-    showSort: isColumnSortEnabled(col.key),
-    dragHeader: false,
-    cellType: 'text' as const,
-    tree: hasTreeData.value && idx === 0 ? true : undefined,
-    headerStyle: isEditableMode.value && isHeaderEditableColumn(col)
-      ? { color: '#2563eb' }
+  
+  // 将列按照 fixed 属性重新排序，确保固定列在前/后
+  const orderedColumns = [
+    ...filteredColumns.filter((col) => col.fixed === 'left'),
+    ...filteredColumns.filter((col) => !col.fixed),
+    ...filteredColumns.filter((col) => col.fixed === 'right')
+  ]
+  
+  const dataColumns = orderedColumns.map((col, idx) => {
+    const {
+      prop,
+      label,
+      width,
+      minWidth,
+      align,
+      fixed,
+      slotName,
+      className,
+      showOverflowTooltip,
+      sortable,
+      sortMethod,
+      sortBy,
+      sortOrders,
+      filters,
+      filterMethod,
+      filterPlacement,
+      filterMultiple,
+      filteredValue,
+      columnKey,
+      formatter,
+      editable,
+      createEditable,
+      editorType,
+      editorOptions,
+      editorProps,
+      required,
+      validator,
+      color,
+      headerColor,
+      backgroundColor,
+      headerBackgroundColor,
+      vtableColumnOptions,
+      ...nativeColumnOptions
+    } = col
+
+    const hasPersonalizedWidth = hasResolvedColumnWidth(col)
+    const preferredWidth = hasPersonalizedWidth
+      ? getResolvedColumnWidth(col)
       : undefined
-  }))
+    const preferredMinWidth = getResolvedColumnMinWidth(col)
+
+    const baseColumn = {
+      field: col.prop as string,
+      caption: col.label,
+      // 默认宽度采用最小安全宽度；如传入原生 width，可在后续合并阶段覆盖。
+      width: idx === orderedColumns.length - 1 ? undefined : preferredMinWidth,
+      minWidth: preferredMinWidth,
+      sort: isColumnSortEnabled(col.key),
+      showSort: isColumnSortEnabled(col.key),
+      dragHeader: false,
+      cellType: 'text' as const,
+      __columnTextColor: col.color,
+      __columnBgColor: col.backgroundColor,
+      tree: hasTreeData.value && idx === 0 ? true : undefined,
+      headerStyle: {
+        color: col.headerColor ?? (isEditableMode.value && isHeaderEditableColumn(col) ? '#2563eb' : undefined),
+        bgColor: col.headerBackgroundColor
+      }
+    }
+    const mergedColumn = {
+      ...baseColumn,
+      ...nativeColumnOptions,
+      ...(col.vtableColumnOptions ?? {})
+    }
+
+    // 个性化宽度（列宽管理/用户拖拽）优先级最高，仅在存在个性化宽度时覆盖透传值。
+    if (hasPersonalizedWidth && preferredWidth !== undefined) {
+      mergedColumn.width = preferredWidth
+    }
+    if (preferredMinWidth !== undefined) {
+      mergedColumn.minWidth = preferredMinWidth
+    }
+
+    return mergedColumn
+  })
 
   const selectionColumn: any[] = selectionMode.value === 'none'
     ? []
@@ -1271,6 +1397,12 @@ const buildVTableOption = () => {
     }]
 
   const validColumns = [...selectionColumn, ...dataColumns]
+
+  // 计算固定列数量
+  const leftFixedCount = orderedColumns.filter((col) => col.fixed === 'left').length
+  const rightFixedCount = orderedColumns.filter((col) => col.fixed === 'right').length
+  const frozenColCount = (selectionMode.value === 'none' ? 0 : 1) + leftFixedCount
+  const rightFrozenColCount = rightFixedCount
 
   const summaryRecord = buildSummaryRecord()
   const records = summaryRecord ? [...displayData.value, summaryRecord] : displayData.value
@@ -1325,7 +1457,9 @@ const buildVTableOption = () => {
           if (typeof field === 'string' && getInvalidCellMessage(rowKey, field)) return '#fff1f0'
           if (props.operationMode === 'delete' && selectedRowKeySet.value.has(rowKey)) return '#ffe7e7'
           if (newRowKeys.value.has(rowKey)) return '#e8f4ff'
-          if (editedRowKeys.value.has(rowKey)) return '#fff1df'
+          if (dirtyRowKeys.value.has(rowKey)) return '#fff1df'
+          const columnBgColor = (validColumns[col] as { __columnBgColor?: string } | undefined)?.__columnBgColor
+          if (columnBgColor) return columnBgColor
           if (props.stripe && bodyRowIndex % 2 === 1) return '#fafcff'
           return '#ffffff'
         },
@@ -1335,6 +1469,8 @@ const buildVTableOption = () => {
           const rowKey = String(getRowIdentity(record))
           const field = validColumns[col]?.field
           if (typeof field === 'string' && getInvalidCellMessage(rowKey, field)) return '#d03050'
+          const columnTextColor = (validColumns[col] as { __columnTextColor?: string } | undefined)?.__columnTextColor
+          if (columnTextColor) return columnTextColor
           return '#606266'
         }
       },
@@ -1354,10 +1490,13 @@ const buildVTableOption = () => {
     autoFillWidth: true,
     autoFillHeight: false,
     containerFit: { width: false, height: true },
+    frozenColCount: frozenColCount,
+    rightFrozenColCount: rightFrozenColCount,
     height: resolvedHeight.value
   }
 
-  const mergedOptions = mergeTableOptions(baseOptions, props.vtableOverrides)
+  const directMergedOptions = mergeTableOptions(baseOptions, directVTableOverrides.value)
+  const mergedOptions = mergeTableOptions(directMergedOptions, props.vtableOverrides)
   const legacyMergedOptions = mergeTableOptions(mergedOptions, props.tableOptions)
 
   return {
@@ -1440,10 +1579,17 @@ const renderVTable = async () => {
   })
 
   vtableInstance.on?.('resize_column_end', (args: any) => {
-    const resizedCols = visibleOrderedColumns.value.filter((col) => col.prop)
     const col = Number(args?.col)
-    if (!Number.isFinite(col) || col < 0 || col >= resizedCols.length) return
-    const targetColumn = resizedCols[col]
+    if (!Number.isFinite(col) || col < 0) return
+
+    const targetField = vtableInstance?.getHeaderField?.(col, 0)
+    const targetColumnKey = getColumnKeyByField(targetField)
+    if (!targetColumnKey) return
+
+    const resizedCols = visibleOrderedColumns.value.filter((column) => column.prop)
+    const targetColumn = resizedCols.find((column) => column.key === targetColumnKey)
+    if (!targetColumn) return
+
     const oldWidth = resizedColumnWidths.value[targetColumn.key] ?? getResolvedColumnMinWidth(targetColumn)
     const nextWidth = Number(args?.colWidths?.[col] ?? vtableInstance?.getColWidth?.(col))
     if (!Number.isFinite(nextWidth) || nextWidth <= 0) return
@@ -1458,11 +1604,25 @@ const renderVTable = async () => {
     nextTick(() => {
       const widthDelta = nextWidth - oldWidth  // 被拖动列的宽度变化量
       if (Math.abs(widthDelta) < 2) return    // 变化太小不处理
-      
-      const lastIdx = resizedCols.length - 1
-      if (col === lastIdx) return              // 拖的就是最后一列，不需要调整
-      
-      const lastColumn = resizedCols[lastIdx]
+
+      const dataColumnKeysInDisplayOrder: string[] = []
+      const totalColCount = Number(vtableInstance?.colCount || 0)
+      for (let index = 0; index < totalColCount; index += 1) {
+        const field = vtableInstance?.getHeaderField?.(index, 0)
+        if (!field || field === SELECTION_FIELD) continue
+        const key = getColumnKeyByField(field)
+        if (key) dataColumnKeysInDisplayOrder.push(key)
+      }
+
+      if (!dataColumnKeysInDisplayOrder.length) return
+
+      const targetIndex = dataColumnKeysInDisplayOrder.indexOf(targetColumn.key)
+      const lastKeyInDisplayOrder = dataColumnKeysInDisplayOrder[dataColumnKeysInDisplayOrder.length - 1]
+      if (targetIndex < 0 || targetColumn.key === lastKeyInDisplayOrder) return
+
+      const lastColumn = resizedCols.find((column) => column.key === lastKeyInDisplayOrder)
+      if (!lastColumn) return
+
       const lastKey = lastColumn.key
       const currentLastWidth = getResolvedColumnWidth(lastColumn) ?? getResolvedColumnMinWidth(lastColumn)
       const minLastWidth = getResolvedColumnMinWidth(lastColumn)
@@ -1506,7 +1666,17 @@ const renderVTable = async () => {
         nextSelected.add(String(getRowIdentity(row)))
       }
     })
+    if (props.operationMode === 'edit') {
+      const deselected = [...editedRowKeys.value].filter((key) => !nextSelected.has(key))
+      if (deselected.length) {
+        editedRowKeys.value = new Set([...editedRowKeys.value].filter((key) => nextSelected.has(key)))
+        emitCellChange()
+      }
+    }
     selectedRowKeySet.value = nextSelected
+    if (props.operationMode === 'create') {
+      emitCellChange()
+    }
     emitSelectionChange()
     refreshTableRecords()
   })
@@ -1515,7 +1685,18 @@ const renderVTable = async () => {
     if (selectionMode.value !== 'single') return
     const record = vtableInstance?.getCellOriginRecord?.(args?.col, args?.row)
     if (!record) return
-    selectedRowKeySet.value = new Set([String(getRowIdentity(record))])
+    const newKey = String(getRowIdentity(record))
+    if (props.operationMode === 'edit') {
+      const prevSize = editedRowKeys.value.size
+      editedRowKeys.value = new Set([...editedRowKeys.value].filter((key) => key === newKey))
+      if (editedRowKeys.value.size !== prevSize) {
+        emitCellChange()
+      }
+    }
+    selectedRowKeySet.value = new Set([newKey])
+    if (props.operationMode === 'create') {
+      emitCellChange()
+    }
     emitSelectionChange()
     refreshTableRecords()
   })

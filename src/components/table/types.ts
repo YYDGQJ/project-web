@@ -3,11 +3,18 @@
  * 该文件承载对外契约，变更时需关注兼容性。
  */
 export interface CommonTableColumn {
+  [key: string]: unknown
   prop?: string
   label: string
   width?: string | number
   minWidth?: string | number
   align?: 'left' | 'center' | 'right'
+  fixed?: 'left' | 'right'
+  color?: string
+  headerColor?: string
+  backgroundColor?: string
+  headerBackgroundColor?: string
+  vtableColumnOptions?: Record<string, unknown>
   slotName?: string
   className?: string
   showOverflowTooltip?: boolean
@@ -73,6 +80,10 @@ export interface CommonTablePaginationConfig {
   showTotal?: boolean
 }
 
+export interface CommonTableLoadingConfig {
+  text?: string
+}
+
 export interface CommonTableVTableOverrides {
   emptyTip?: Record<string, unknown>
   dragOrder?: Record<string, unknown>
@@ -100,12 +111,13 @@ export interface CommonTableSelectionChangePayload {
 }
 
 export interface CommonTableEditCellChangePayload {
-  mode: Exclude<CommonTableOperationMode, 'idle' | 'delete'>
-  row: any
-  rowKey: string | number
-  field: string
-  value: unknown
-  applyPatch: (patch: Record<string, unknown>) => void
+  /** edit 模式：当前所有已改动的行 */
+  editRows: any[]
+}
+
+export interface CommonTableAddCellChangePayload {
+  /** create 模式：当前所有新增的行 */
+  addRows: any[]
 }
 
 export interface CommonTableSubmitPayload {
